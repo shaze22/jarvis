@@ -6,6 +6,7 @@ import Message from './Message'
 import InputBar from './InputBar'
 import { routeQuery, type AIMode } from '@/lib/ai/router'
 import { Cpu, Sparkles } from 'lucide-react'
+import NeuralCanvas from '@/components/NeuralCanvas'
 
 interface ChatMessage {
   id: string
@@ -228,7 +229,7 @@ export default function ChatInterface({ conversationId }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto relative">
         {loadingHistory ? (
           <div className="flex items-center justify-center h-full">
             <div className="flex gap-1">
@@ -238,24 +239,27 @@ export default function ChatInterface({ conversationId }: Props) {
             </div>
           </div>
         ) : isEmpty ? (
-          <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 glow-accent">
-              <Cpu className="w-8 h-8 text-primary" />
-            </div>
-            <h2 className="text-xl font-semibold text-foreground mb-1">How can I help?</h2>
-            <p className="text-sm text-muted-foreground mb-8">Claude · GPT-4o · Gemini · DALL·E 3</p>
-            <div className="grid grid-cols-2 gap-2 max-w-lg w-full">
-              {SUGGESTED.map(s => (
-                <button key={s} onClick={() => setInput(s)}
-                  className="text-left text-xs p-3 bg-card border border-border rounded-xl hover:border-primary/30 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition">
-                  <Sparkles className="w-3 h-3 text-primary mb-1.5" />
-                  {s}
-                </button>
-              ))}
+          <div className="relative flex flex-col items-center justify-center h-full px-6 text-center overflow-hidden">
+            <NeuralCanvas isThinking={isLoading} />
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 glow-accent">
+                <Cpu className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">How can I help?</h2>
+              <p className="text-sm text-muted-foreground mb-8">Claude · GPT-4o · Gemini · DALL·E 3</p>
+              <div className="grid grid-cols-2 gap-2 max-w-lg w-full">
+                {SUGGESTED.map(s => (
+                  <button key={s} onClick={() => setInput(s)}
+                    className="text-left text-xs p-3 bg-card/80 backdrop-blur border border-border rounded-xl hover:border-primary/30 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition">
+                    <Sparkles className="w-3 h-3 text-primary mb-1.5" />
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+          <div className="max-w-3xl mx-auto px-6 py-6 space-y-6 relative z-10">
             {messages.map(msg => (
               <Message key={msg.id} role={msg.role} content={msg.content} provider={msg.provider} imageUrl={msg.imageUrl}
                 isStreaming={isLoading && msg.role === 'assistant' && msg.id === messages[messages.length - 1]?.id && msg.content === ''} />
