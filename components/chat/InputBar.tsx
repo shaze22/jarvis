@@ -9,6 +9,7 @@ interface Props {
   value: string
   onChange: (v: string) => void
   onSubmit: () => void
+  onVoiceSubmit: (text: string) => void
   mode: AIMode
   onModeChange: (m: AIMode) => void
   isLoading: boolean
@@ -17,7 +18,7 @@ interface Props {
   stop: () => void
 }
 
-export default function InputBar({ value, onChange, onSubmit, mode, onModeChange, isLoading, attachment, onAttach, stop }: Props) {
+export default function InputBar({ value, onChange, onSubmit, onVoiceSubmit, mode, onModeChange, isLoading, attachment, onAttach, stop }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,15 +40,14 @@ export default function InputBar({ value, onChange, onSubmit, mode, onModeChange
 
     recognition.onresult = (e) => {
       const transcript = e.results[0][0].transcript
-      onChange(transcript)
       setIsListening(false)
-      setTimeout(() => { onSubmit() }, 300)
+      onVoiceSubmit(transcript)
     }
 
     recognition.onerror = () => setIsListening(false)
     recognition.onend = () => setIsListening(false)
     recognitionRef.current = recognition
-  }, [onChange, onSubmit])
+  }, [onVoiceSubmit])
 
   function toggleMic() {
     if (!recognitionRef.current) return

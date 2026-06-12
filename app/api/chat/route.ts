@@ -58,7 +58,13 @@ export async function POST(req: Request) {
       modelInstance = anthropic('claude-sonnet-4-6')
   }
 
-  const modelMessages = await convertToModelMessages(messages)
+  let modelMessages
+  try {
+    modelMessages = await convertToModelMessages(messages)
+  } catch (e) {
+    console.error('convertToModelMessages failed:', e, 'messages:', JSON.stringify(messages?.slice(0,2)))
+    return Response.json({ error: String(e) }, { status: 500 })
+  }
 
   const result = streamText({
     model: modelInstance,

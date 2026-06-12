@@ -55,21 +55,15 @@ export default function ChatInterface({ conversationId }: Props) {
   useEffect(() => { stateRef.current.convId = convId }, [convId])
   useEffect(() => { stateRef.current.hasFile = !!attachment }, [attachment])
 
-  // prepareSendMessagesRequest fully replaces the default body — must include messages/id/trigger manually
+  // body supports functions at runtime (resolved via provider-utils resolve())
+  // messages/id/trigger are spread on top of resolvedBody automatically by the transport
   const transportRef = useRef(new DefaultChatTransport({
     api: '/api/chat',
-    prepareSendMessagesRequest: ({ messages, id, trigger, messageId, body }) => ({
-      body: {
-        ...body,
-        id,
-        messages,
-        trigger,
-        messageId,
-        mode: stateRef.current.mode,
-        conversationId: stateRef.current.convId,
-        hasFile: stateRef.current.hasFile,
-      },
-    }),
+    body: (() => ({
+      mode: stateRef.current.mode,
+      conversationId: stateRef.current.convId,
+      hasFile: stateRef.current.hasFile,
+    })) as unknown as object,
   }))
 
   const prevStatusRef = useRef<string>('')
@@ -139,6 +133,19 @@ export default function ChatInterface({ conversationId }: Props) {
     stateRef.current.convId = newId
     router.replace(`/chat/${newId}`, { scroll: false })
     return newId
+  }
+
+  async function handleVoiceSubmit(text: string) {
+    if (!text.trim()) return
+    const cid = await ensureConversation()
+    if (messages.length === 0 && cid) {
+      fetch(`/api/conversations/${cid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: text.slice(0, 50) }),
+      })
+    }
+    await sendMessage({ text })
   }
 
   async function handleSubmit() {
@@ -299,6 +306,7 @@ export default function ChatInterface({ conversationId }: Props) {
         value={input}
         onChange={setInput}
         onSubmit={handleSubmit}
+        onVoiceSubmit={handleVoiceSubmit}
         mode={mode}
         onModeChange={setMode}
         isLoading={isLoading || isImageGen}
