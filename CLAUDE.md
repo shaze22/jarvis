@@ -10,15 +10,35 @@
 
 ## Key Conventions
 
-### AI SDK v5 Breaking Changes
-- Use `@ai-sdk/react` for `useChat`, NOT `ai/react`
-- `useChat` returns `{ messages, sendMessage, status, stop }` — no `input/setInput/append`
-- Messages are `UIMessage` with `.parts[]` (not `.content` string)
-- Extract text: `msg.parts.filter(p => p.type === 'text').map(p => p.text).join('')`
-- Send message: `sendMessage({ text: '...' })`
-- Transport: use `DefaultChatTransport` (not `HttpChatTransport` — abstract)
-- API route: use `result.toUIMessageStreamResponse()`, NOT `toDataStreamResponse()`
-- Convert messages: `await convertToModelMessages(messages)` before `streamText`
+### Chat Implementation (WORKING PATTERN)
+DO NOT use `useChat`/`DefaultChatTransport` — caused persistent 500 errors in production.
+
+Use **simple fetch + ReadableStream** instead:
+```typescript
+// Client
+const res = await fetch('/api/chat', {
+  method: 'POST',
+  body: JSON.stringify({ message, history, mode, conversationId }),
+})
+const reader = res.body!.getReader()
+const decoder = new TextDecoder()
+let full = ''
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+  full += decoder.decode(value, { stream: true })
+}
+
+// Server (route.ts)
+const result = streamText({ model, system, messages: [{ role: 'user', content: message }, ...history] })
+return result.toTextStreamResponse()
+```
+
+### AI SDK v5 Notes (avoid these pitfalls)
+- `DefaultChatTransport body` must be static object — function body `() => ({})` fails silently
+- `prepareSendMessagesRequest` replaces entire body — must manually spread messages/id/trigger
+- `convertToModelMessages` fails if UIMessages not in exact expected format
+- Just use plain `{ role, content }[]` messages with `streamText` directly — much simpler
 
 ### Next.js 16 Breaking Changes  
 - `middleware.ts` → `proxy.ts`, export `proxy` function (not `middleware`)
