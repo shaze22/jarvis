@@ -4,6 +4,7 @@ import { openai } from '@ai-sdk/openai'
 import { google } from '@ai-sdk/google'
 import { routeQuery, type AIMode } from '@/lib/ai/router'
 import { createClient } from '@/lib/supabase/server'
+import { webSearch, needsWebSearch, formatSearchContext } from '@/lib/search'
 
 const SYSTEM_PROMPT = `You are J.A.R.V.I.S. — Just A Rather Very Intelligent System — the personal AI of your user, inspired by the AI from Iron Man.
 
@@ -39,10 +40,18 @@ export async function POST(req: Request) {
       default: modelInstance = anthropic('claude-sonnet-4-6')
     }
 
+    // Auto web search for time-sensitive queries
+    let searchContext = ''
+    if (needsWebSearch(message)) {
+      const results = await webSearch(message)
+      searchContext = formatSearchContext(results)
+    }
+
     // Build plain model messages
+    const userContent = message + searchContext
     const messages: { role: 'user' | 'assistant'; content: string }[] = [
       ...history,
-      { role: 'user', content: message },
+      { role: 'user', content: userContent },
     ]
 
     const result = streamText({
