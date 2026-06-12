@@ -135,38 +135,42 @@ export default function ChatInterface({ conversationId }: Props) {
       .replace(/[*_#>`\-]/g, '')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 1200)
+      .slice(0, 1500)
     if (!clean) return
 
     window.speechSynthesis.cancel()
 
-    // Split into sentences to avoid Chrome's ~15s TTS cutoff bug
-    const sentences = clean.match(/[^.!?]+[.!?]+|\S[^.!?]*/g) ?? [clean]
-
-    function getVoice() {
+    function doSpeak() {
       const voices = window.speechSynthesis.getVoices()
-      return voices.find(v => v.lang === 'en-GB' && /daniel|george|male/i.test(v.name))
+      const voice = voices.find(v => v.lang === 'en-GB' && /daniel|george|male/i.test(v.name))
         || voices.find(v => v.lang === 'en-GB')
         || voices.find(v => v.lang.startsWith('en'))
         || null
-    }
 
-    function speakSentences(list: string[]) {
-      if (!list.length) return
-      const utt = new SpeechSynthesisUtterance(list[0])
+      const utt = new SpeechSynthesisUtterance(clean)
       utt.rate = 1.0
       utt.pitch = 0.9
-      const voice = getVoice()
       if (voice) utt.voice = voice
-      utt.onend = () => speakSentences(list.slice(1))
+
+      // Chrome bug: synthesis stops after ~15s — keepalive via pause/resume
+      let keepAlive: ReturnType<typeof setInterval>
+      utt.onstart = () => {
+        keepAlive = setInterval(() => {
+          if (!window.speechSynthesis.speaking) { clearInterval(keepAlive); return }
+          window.speechSynthesis.pause()
+          window.speechSynthesis.resume()
+        }, 10000)
+      }
+      utt.onend = () => clearInterval(keepAlive)
+      utt.onerror = () => clearInterval(keepAlive)
+
       window.speechSynthesis.speak(utt)
     }
 
-    // Voices may not be loaded yet — wait if needed
     if (window.speechSynthesis.getVoices().length > 0) {
-      speakSentences(sentences)
+      doSpeak()
     } else {
-      window.speechSynthesis.addEventListener('voiceschanged', () => speakSentences(sentences), { once: true })
+      window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true })
     }
   }
 
