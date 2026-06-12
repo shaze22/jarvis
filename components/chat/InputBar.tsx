@@ -1,7 +1,7 @@
 'use client'
 
-import { useRef, type KeyboardEvent } from 'react'
-import { Send, Paperclip, X, Image as ImageIcon } from 'lucide-react'
+import { useRef, useState, useEffect, type KeyboardEvent } from 'react'
+import { Send, Paperclip, X, Image as ImageIcon, Mic, MicOff } from 'lucide-react'
 import AISelector from './AISelector'
 import { type AIMode } from '@/lib/ai/router'
 
@@ -20,6 +20,45 @@ interface Props {
 export default function InputBar({ value, onChange, onSubmit, mode, onModeChange, isLoading, attachment, onAttach, stop }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null)
+  const [isListening, setIsListening] = useState(false)
+
+  useEffect(() => {
+    type SR = new () => { lang: string; continuous: boolean; interimResults: boolean; start(): void; stop(): void; onresult: ((e: { results: { [k: number]: { [k: number]: { transcript: string } } } }) => void) | null; onerror: (() => void) | null; onend: (() => void) | null }
+    const SpeechRecognitionClass = (
+      (window as unknown as { SpeechRecognition?: SR }).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: SR }).webkitSpeechRecognition
+    )
+    if (!SpeechRecognitionClass) return
+
+    const recognition = new SpeechRecognitionClass()
+    recognition.lang = 'en-US'
+    recognition.continuous = false
+    recognition.interimResults = false
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript
+      onChange(transcript)
+      setIsListening(false)
+      setTimeout(() => { onSubmit() }, 300)
+    }
+
+    recognition.onerror = () => setIsListening(false)
+    recognition.onend = () => setIsListening(false)
+    recognitionRef.current = recognition
+  }, [onChange, onSubmit])
+
+  function toggleMic() {
+    if (!recognitionRef.current) return
+    if (isListening) {
+      recognitionRef.current.stop()
+      setIsListening(false)
+    } else {
+      recognitionRef.current.start()
+      setIsListening(true)
+    }
+  }
 
   function handleKey(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -38,13 +77,16 @@ export default function InputBar({ value, onChange, onSubmit, mode, onModeChange
     el.style.height = Math.min(el.scrollHeight, 200) + 'px'
   }
 
+  const hasSpeech = typeof window !== 'undefined' && !!(
+    (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition ||
+    (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+  )
+
   return (
     <div className="p-4 border-t border-border bg-background">
       <div className="max-w-3xl mx-auto space-y-2">
-        {/* AI selector row */}
         <AISelector value={mode} onChange={onModeChange} />
 
-        {/* Attachment preview */}
         {attachment && (
           <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-xl border border-border text-sm">
             <ImageIcon className="w-4 h-4 text-primary flex-shrink-0" />
@@ -55,8 +97,7 @@ export default function InputBar({ value, onChange, onSubmit, mode, onModeChange
           </div>
         )}
 
-        {/* Input area */}
-        <div className="input-glow flex items-end gap-2 bg-card border border-border rounded-2xl px-4 py-3">
+        <div className={`input-glow flex items-end gap-2 bg-card border rounded-2xl px-4 py-3 transition-colors ${isListening ? 'border-red-500/50 shadow-[0_0_12px_rgba(239,68,68,0.2)]' : 'border-border'}`}>
           <button
             onClick={() => fileRef.current?.click()}
             className="text-muted-foreground hover:text-primary transition pb-0.5 flex-shrink-0"
@@ -71,11 +112,27 @@ export default function InputBar({ value, onChange, onSubmit, mode, onModeChange
             value={value}
             onChange={e => { onChange(e.target.value); autoResize(e.target) }}
             onKeyDown={handleKey}
-            placeholder="Ask JARVIS anything… (Shift+Enter for new line)"
+            placeholder={isListening ? 'Listening…' : 'Ask JARVIS anything… (Shift+Enter for new line)'}
             rows={1}
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none leading-relaxed"
             style={{ minHeight: '24px', maxHeight: '200px' }}
           />
+
+          {/* Mic button */}
+          {hasSpeech && (
+            <button
+              onClick={toggleMic}
+              disabled={isLoading}
+              className={`flex-shrink-0 w-8 h-8 rounded-xl border flex items-center justify-center transition pb-0.5 ${
+                isListening
+                  ? 'bg-red-500/20 border-red-500/40 text-red-400 animate-pulse'
+                  : 'bg-muted border-border text-muted-foreground hover:text-primary hover:border-primary/30'
+              }`}
+              title={isListening ? 'Stop listening' : 'Speak to JARVIS'}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+          )}
 
           {isLoading ? (
             <button

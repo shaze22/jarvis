@@ -67,10 +67,46 @@ export default function ChatInterface({ conversationId }: Props) {
     }),
   }))
 
+  const prevStatusRef = useRef<string>('')
+
   const { messages, sendMessage, status, stop } = useChat({
     transport: transportRef.current,
   })
   const isLoading = status === 'streaming' || status === 'submitted'
+
+  // Speak JARVIS response when streaming finishes
+  useEffect(() => {
+    const wasStreaming = prevStatusRef.current === 'streaming'
+    prevStatusRef.current = status
+    if (!wasStreaming || status !== 'ready') return
+
+    const last = messages[messages.length - 1]
+    if (!last || last.role !== 'assistant') return
+
+    const text = getMessageText(last)
+      .replace(/```[\s\S]*?```/g, 'code block.')
+      .replace(/`[^`]+`/g, '')
+      .replace(/[*_#>\-]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 500)
+
+    if (!text || typeof window === 'undefined') return
+    window.speechSynthesis.cancel()
+    const utt = new SpeechSynthesisUtterance(text)
+    utt.rate = 1.0
+    utt.pitch = 0.9
+
+    // Prefer a British male voice
+    const voices = window.speechSynthesis.getVoices()
+    const british = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('male'))
+      || voices.find(v => v.lang === 'en-GB')
+      || voices.find(v => v.name.toLowerCase().includes('daniel'))
+      || voices.find(v => v.lang.startsWith('en'))
+    if (british) utt.voice = british
+
+    window.speechSynthesis.speak(utt)
+  }, [status, messages])
 
   // Load conversation history
   useEffect(() => {
