@@ -55,12 +55,16 @@ export default function ChatInterface({ conversationId }: Props) {
   useEffect(() => { stateRef.current.convId = convId }, [convId])
   useEffect(() => { stateRef.current.hasFile = !!attachment }, [attachment])
 
-  // transport is created once via ref; spread default body (contains messages) then add custom fields
+  // prepareSendMessagesRequest fully replaces the default body — must include messages/id/trigger manually
   const transportRef = useRef(new DefaultChatTransport({
     api: '/api/chat',
-    prepareSendMessagesRequest: ({ body }) => ({
+    prepareSendMessagesRequest: ({ messages, id, trigger, messageId, body }) => ({
       body: {
         ...body,
+        id,
+        messages,
+        trigger,
+        messageId,
         mode: stateRef.current.mode,
         conversationId: stateRef.current.convId,
         hasFile: stateRef.current.hasFile,
