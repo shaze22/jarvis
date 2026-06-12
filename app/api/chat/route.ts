@@ -37,68 +37,70 @@ function getLastMessageText(messages: UIMessage[]): string {
 }
 
 export async function POST(req: Request) {
-  const body = await req.json()
-  const messages: UIMessage[] = body.messages ?? []
-  const mode: AIMode = body.mode ?? 'auto'
-  const conversationId: string | undefined = body.conversationId
-  const hasFile: boolean = body.hasFile ?? false
-
-  const lastMessageText = getLastMessageText(messages)
-  const route = routeQuery(lastMessageText, mode, hasFile)
-
-  let modelInstance
-  switch (route.provider) {
-    case 'openai':
-      modelInstance = openai('gpt-4o')
-      break
-    case 'google':
-      modelInstance = google('gemini-2.5-flash')
-      break
-    default:
-      modelInstance = anthropic('claude-sonnet-4-6')
-  }
-
-  let modelMessages
   try {
-    modelMessages = await convertToModelMessages(messages)
+    const body = await req.json()
+    console.log('JARVIS body keys:', Object.keys(body), 'messages count:', body.messages?.length, 'first msg:', JSON.stringify(body.messages?.[0])?.slice(0,200))
+
+    const messages: UIMessage[] = body.messages ?? []
+    const mode: AIMode = body.mode ?? 'auto'
+    const conversationId: string | undefined = body.conversationId
+    const hasFile: boolean = body.hasFile ?? false
+
+    const lastMessageText = getLastMessageText(messages)
+    const route = routeQuery(lastMessageText, mode, hasFile)
+
+    let modelInstance
+    switch (route.provider) {
+      case 'openai':
+        modelInstance = openai('gpt-4o')
+        break
+      case 'google':
+        modelInstance = google('gemini-2.5-flash')
+        break
+      default:
+        modelInstance = anthropic('claude-sonnet-4-6')
+    }
+
+    const modelMessages = await convertToModelMessages(messages)
+
+    const result = streamText({
+      model: modelInstance,
+      system: SYSTEM_PROMPT,
+      messages: modelMessages,
+      onFinish: async ({ text }) => {
+        if (!conversationId) return
+        try {
+          const supabase = await createClient()
+          await supabase.from('jarvis_messages').insert([
+            {
+              conversation_id: conversationId,
+              role: 'user',
+              content: lastMessageText,
+              model_used: route.model,
+              provider: route.provider,
+            },
+            {
+              conversation_id: conversationId,
+              role: 'assistant',
+              content: text,
+              model_used: route.model,
+              provider: route.provider,
+            },
+          ])
+        } catch {}
+      },
+    })
+
+    return result.toUIMessageStreamResponse({
+      headers: {
+        'X-Provider': route.provider,
+        'X-Model': route.model,
+        'X-Reason': route.reason,
+      },
+    })
   } catch (e) {
-    console.error('convertToModelMessages failed:', e, 'messages:', JSON.stringify(messages?.slice(0,2)))
-    return Response.json({ error: String(e) }, { status: 500 })
+    const err = e as Error
+    console.error('JARVIS /api/chat error:', err.message, err.stack?.slice(0, 800))
+    return Response.json({ error: err.message }, { status: 500 })
   }
-
-  const result = streamText({
-    model: modelInstance,
-    system: SYSTEM_PROMPT,
-    messages: modelMessages,
-    onFinish: async ({ text }) => {
-      if (!conversationId) return
-      try {
-        const supabase = await createClient()
-        await supabase.from('jarvis_messages').insert([
-          {
-            conversation_id: conversationId,
-            role: 'user',
-            content: lastMessageText,
-            model_used: route.model,
-            provider: route.provider,
-          },
-          {
-            conversation_id: conversationId,
-            role: 'assistant',
-            content: text,
-            model_used: route.model,
-            provider: route.provider,
-          },
-        ])
-      } catch {}
-    },
-  })
-
-  return result.toUIMessageStreamResponse({
-    headers: {
-      'X-Provider': route.provider,
-      'X-Model': route.model,
-      'X-Reason': route.reason,
-    },
-  })
 }
