@@ -55,11 +55,12 @@ export default function ChatInterface({ conversationId }: Props) {
   useEffect(() => { stateRef.current.convId = convId }, [convId])
   useEffect(() => { stateRef.current.hasFile = !!attachment }, [attachment])
 
-  // transport is created once via ref; prepareSendMessagesRequest injects dynamic values per-request
+  // transport is created once via ref; spread default body (contains messages) then add custom fields
   const transportRef = useRef(new DefaultChatTransport({
     api: '/api/chat',
-    prepareSendMessagesRequest: () => ({
+    prepareSendMessagesRequest: ({ body }) => ({
       body: {
+        ...body,
         mode: stateRef.current.mode,
         conversationId: stateRef.current.convId,
         hasFile: stateRef.current.hasFile,

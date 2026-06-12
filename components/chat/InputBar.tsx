@@ -77,10 +77,13 @@ export default function InputBar({ value, onChange, onSubmit, mode, onModeChange
     el.style.height = Math.min(el.scrollHeight, 200) + 'px'
   }
 
-  const hasSpeech = typeof window !== 'undefined' && !!(
-    (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition ||
-    (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
-  )
+  const [hasSpeech, setHasSpeech] = useState(false)
+  useEffect(() => {
+    setHasSpeech(!!(
+      (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+    ))
+  }, [])
 
   return (
     <div className="p-4 border-t border-border bg-background">
