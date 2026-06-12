@@ -241,17 +241,28 @@ export default function ChatInterface({ conversationId }: Props) {
         ) : isEmpty ? (
           <div className="relative flex flex-col items-center justify-center h-full px-6 text-center overflow-hidden">
             <NeuralCanvas isThinking={isLoading} />
+            {/* Radial vignette to focus centre */}
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 50%, transparent 30%, oklch(0.08 0.02 265) 100%)' }} />
+
             <div className="relative z-10 flex flex-col items-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 glow-accent">
-                <Cpu className="w-8 h-8 text-primary" />
+              {/* Icon */}
+              <div className="relative mb-5">
+                <div className="absolute inset-0 rounded-2xl blur-xl bg-primary/30 scale-150" />
+                <div className="relative w-20 h-20 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center">
+                  <Cpu className="w-10 h-10 text-primary" />
+                </div>
               </div>
-              <h2 className="text-xl font-semibold text-foreground mb-1">How can I help?</h2>
-              <p className="text-sm text-muted-foreground mb-8">Claude · GPT-4o · Gemini · DALL·E 3</p>
+
+              <h1 className="text-4xl font-bold tracking-tight text-foreground mb-1">JARVIS</h1>
+              <p className="text-sm text-primary/80 font-medium mb-1 tracking-widest uppercase">Personal AI Operating System</p>
+              <p className="text-xs text-muted-foreground mb-10">Claude · GPT-4o · Gemini · DALL·E 3</p>
+
               <div className="grid grid-cols-2 gap-2 max-w-lg w-full">
                 {SUGGESTED.map(s => (
                   <button key={s} onClick={() => setInput(s)}
-                    className="text-left text-xs p-3 bg-card/80 backdrop-blur border border-border rounded-xl hover:border-primary/30 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition">
-                    <Sparkles className="w-3 h-3 text-primary mb-1.5" />
+                    className="group text-left text-xs p-3 bg-card/60 backdrop-blur-sm border border-white/5 rounded-xl hover:border-primary/40 hover:bg-primary/8 text-muted-foreground hover:text-foreground transition-all duration-200">
+                    <Sparkles className="w-3 h-3 text-primary/60 group-hover:text-primary mb-1.5 transition-colors" />
                     {s}
                   </button>
                 ))}
