@@ -129,17 +129,45 @@ export default function ChatInterface({ conversationId }: Props) {
 
   function speakText(text: string) {
     if (typeof window === 'undefined') return
-    const clean = text.replace(/```[\s\S]*?```/g, 'code block.').replace(/[*_#>`\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 500)
+    const clean = text
+      .replace(/```[\s\S]*?```/g, 'code block.')
+      .replace(/`[^`]+`/g, '')
+      .replace(/[*_#>`\-]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 1200)
     if (!clean) return
+
     window.speechSynthesis.cancel()
-    const utt = new SpeechSynthesisUtterance(clean)
-    utt.rate = 1.0; utt.pitch = 0.9
-    const voices = window.speechSynthesis.getVoices()
-    const voice = voices.find(v => v.lang === 'en-GB' && /male|daniel|george/i.test(v.name))
-      || voices.find(v => v.lang === 'en-GB')
-      || voices.find(v => v.lang.startsWith('en'))
-    if (voice) utt.voice = voice
-    window.speechSynthesis.speak(utt)
+
+    // Split into sentences to avoid Chrome's ~15s TTS cutoff bug
+    const sentences = clean.match(/[^.!?]+[.!?]+|\S[^.!?]*/g) ?? [clean]
+
+    function getVoice() {
+      const voices = window.speechSynthesis.getVoices()
+      return voices.find(v => v.lang === 'en-GB' && /daniel|george|male/i.test(v.name))
+        || voices.find(v => v.lang === 'en-GB')
+        || voices.find(v => v.lang.startsWith('en'))
+        || null
+    }
+
+    function speakSentences(list: string[]) {
+      if (!list.length) return
+      const utt = new SpeechSynthesisUtterance(list[0])
+      utt.rate = 1.0
+      utt.pitch = 0.9
+      const voice = getVoice()
+      if (voice) utt.voice = voice
+      utt.onend = () => speakSentences(list.slice(1))
+      window.speechSynthesis.speak(utt)
+    }
+
+    // Voices may not be loaded yet — wait if needed
+    if (window.speechSynthesis.getVoices().length > 0) {
+      speakSentences(sentences)
+    } else {
+      window.speechSynthesis.addEventListener('voiceschanged', () => speakSentences(sentences), { once: true })
+    }
   }
 
   async function handleSubmit() {
