@@ -55,13 +55,15 @@ export default function ChatInterface({ conversationId }: Props) {
   useEffect(() => { stateRef.current.convId = convId }, [convId])
   useEffect(() => { stateRef.current.hasFile = !!attachment }, [attachment])
 
-  // transport is created once via ref so dynamic body function always reads latest state
+  // transport is created once via ref; prepareSendMessagesRequest injects dynamic values per-request
   const transportRef = useRef(new DefaultChatTransport({
     api: '/api/chat',
-    body: () => ({
-      mode: stateRef.current.mode,
-      conversationId: stateRef.current.convId,
-      hasFile: stateRef.current.hasFile,
+    prepareSendMessagesRequest: () => ({
+      body: {
+        mode: stateRef.current.mode,
+        conversationId: stateRef.current.convId,
+        hasFile: stateRef.current.hasFile,
+      },
     }),
   }))
 
