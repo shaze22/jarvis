@@ -54,9 +54,12 @@ export async function POST(req: Request) {
       { role: 'user', content: userContent },
     ]
 
+    const now = new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kuala_Lumpur' })
+    const systemWithDate = `${SYSTEM_PROMPT}\n\nCurrent date: ${now} (Malaysia Time).`
+
     const result = streamText({
       model: modelInstance,
-      system: SYSTEM_PROMPT,
+      system: systemWithDate,
       messages,
       onFinish: async ({ text }) => {
         if (!conversationId) return
